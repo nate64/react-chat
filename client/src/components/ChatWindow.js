@@ -3,13 +3,25 @@ import { connect } from 'react-redux';
 import { setFlash } from '../reducers/flash';
 import { addMessage } from '../reducers/messages';
 import ChatMessage from './ChatMessage';
+import axios from 'axios';
 import { Segment, Header, Form, TextArea, Button } from 'semantic-ui-react';
 
 class ChatWindow extends Component {
-  state = { newMessage: '' };
+  state = { newMessage: '', loaded: false };
 
   componentDidMount() {
-    this.props.dispatch(setFlash('Welcome To React Chat!', 'success'));
+    const { dispatch } = this.props;
+    window.MessageBus.start();
+
+    dispatch(setFlash('Welcome To React Chat!', 'success'));
+
+    window.MessageBus.subscribe("/chat_channel", (data) => {
+      dispatch(addMessage(data));
+    });
+  }
+
+  componentWillUnmount() {
+    window.MessageBus.unsubscribe('/chat_channel');
   }
 
   displayMessages = () => {
@@ -22,7 +34,7 @@ class ChatWindow extends Component {
     else
       return(
         <Segment inverted textAlign='center'>
-          <Header as='h1'>No Chat Messages Yet.</Header>
+          <Header as='h1'>No Chat Messages...</Header>
         </Segment>
       )
   }
@@ -35,8 +47,13 @@ class ChatWindow extends Component {
    e.preventDefault();
    const { dispatch, user: { email } } = this.props;
 
-   dispatch(addMessage({ email, body: this.state.newMessage }));
-   this.setState({ newMessage: '' });
+   axios.post('/api/messages', { email, body: this.state.newMessage })
+     .then(res => {
+       this.setState({ newMessage: '' });
+     })
+     .catch( error => {
+       dispatch(setFlash('Error posting message.', 'error'));
+   });
  }
 
  render() {
